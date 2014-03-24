@@ -1,5 +1,8 @@
-<polymer-element name="creationix-ticker" noscript>
+<link rel="import" href="../lib/polymer/polymer.html">
+<polymer-element name="creationix-ticker" attributes="maxItems" constructor="CreationixTicker">
   <template>
-    <span>HELLO!</span>
+    <link rel="stylesheet" href="creationix-ticker.css">
+    <span id="span">{{maxItems}}</span>
   </template>
+  <script src="creationix-ticker.js"></script>
 </polymer-element>
