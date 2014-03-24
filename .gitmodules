@@ -1,0 +1,8 @@
+[submodule "lib/platform"]
+	url = git@github.com:Polymer/platform.git
+	ref = refs/heads/master
+	path = lib/platform
+[submodule "lib/polymer"]
+	url = git@github.com:Polymer/polymer.git
+	ref = refs/heads/master
+	path = lib/polymer
