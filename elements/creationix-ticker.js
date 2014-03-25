@@ -16,7 +16,6 @@
       window.requestAnimationFrame(onFrame);
       function onFrame() {
         window.requestAnimationFrame(onFrame);
-        console.log(self);
         var now = Date.now();
         var width = self.clientWidth;
         messages.forEach(function (item) {
@@ -47,6 +46,10 @@
             item.active = false;
             num--;
           }
+          if (item.dying) {
+            messages.splice(messages.indexOf(item), 1);
+            item.el.parentNode.removeChild(item.el);
+          }
           item.start = now;
         }
       }
@@ -54,9 +57,7 @@
 
     // This the public API for adding a new message to the ticker queue
     // It will display as the next message jumping in front of any existing
-    // queued messages.
-    // TODO: we shouldn't jump in front of queued messages that haven't been
-    // shown at least one time.
+    // queued messages, but after any that have not been shown at least once.
     addMessage: function (message) {
 
       // Create the element for the message and insert into the shadowRoot
@@ -66,11 +67,14 @@
 
       // Create the message object that contains the timing information and
       // a reference to the dom element.
+      var created = Date.now();
       var item = {
-        el: el,            // The actual element to be moved
-        start: Date.now(), // Time it started animating
-        active: false,     // Flag to tell if it's currently on the screen.
-        seen: false,       // Flag to tell if it's ever been on the screen.
+        el: el,           // The actual element to be moved
+        created: created, // Created timestamp
+        start: created,   // Time it started animating
+        active: false,    // Flag to tell if it's currently on the screen.
+        seen: false,      // Flag to tell if it's ever been on the screen.
+        dying: false,
       };
 
 
@@ -91,6 +95,21 @@
         // debugger;
         this.messages.push(item);
       }
+
+      l = this.messages.length;
+      if (l > 25) {
+        // If the list is too long, remove the oldest message
+        var oldest = Infinity, index = -1;
+        for (i = 0; i < l; i++) {
+          var other = this.messages[i];
+          if (!other.dying && other.created < oldest) {
+            oldest = other.created;
+            other.dying = true;
+            index = i;
+          }
+        }
+      }
+
     }
 
   });
