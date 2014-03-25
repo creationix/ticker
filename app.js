@@ -8,7 +8,8 @@ window.addEventListener("polymer-ready", function () {
   ticker.addMessage("The laptop is orange");
   ticker.addMessage("This is a ticker");
   ticker.addMessage("It's cool right?!");
+  var i = 0;
   setInterval(function () {
-    ticker.addMessage("Message " + Date.now());
-  }, 4000);
+    ticker.addMessage("Message " + (++i));
+  }, 1000);
 }, false);
