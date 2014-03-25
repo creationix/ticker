@@ -1,118 +1,119 @@
 /*global Polymer*/
-(function () {
 
-  Polymer('creationix-ticker', {
+Polymer('creationix-ticker', {
 
-    ready: function () {
+  ready: function () {
 
-      // This is the internal list of message objects
-      var messages = this.messages = [];
+    var self = this;
 
+    // This is the internal list of message objects
+    var messages = this.messages = [];
+    // This is the left offset of the first message.  We start out off the right.
 
-      this.messageIndex = 0;
-      var self = this;
-      var prev = 0;
-      var num = 0;
+    this.width = this.clientWidth;
+
+    // Start out with items appearing on the right side.
+    this.left = this.width;
+
+    var before = Date.now();
+
+    // Speed in pixels per second
+    // TODO: make this configurable
+    var speed = 100;
+
+    window.requestAnimationFrame(onFrame);
+    function onFrame() {
       window.requestAnimationFrame(onFrame);
-      function onFrame() {
-        window.requestAnimationFrame(onFrame);
-        var now = Date.now();
-        var width = self.clientWidth;
-        messages.forEach(function (item) {
-          if (!item.active && num && prev > 0) {
-            reset(item);
-          }
-          else {
-            if (!item.active) {
-              item.start = now;
-              item.active = true;
-              item.seen = true;
-              num++;
-            }
-          }
-          var delta = now - item.start;
-          var offset = width * (1 - delta / 5000);
-          item.el.style.webkitTransform = "translateX(" + offset + "px)";
-          var selfWidth = item.el.offsetWidth;
-          prev = offset - width + selfWidth;
-          if (offset < -1 * selfWidth) {
-            reset(item);
-          }
-        });
+      // Check to see if the element has been resized
+      self.width = self.clientWidth;
 
-        function reset(item) {
-          item.start = now;
-          if (item.active) {
-            item.active = false;
-            num--;
-          }
-          if (item.dying) {
-            messages.splice(messages.indexOf(item), 1);
-            item.el.parentNode.removeChild(item.el);
-          }
-          item.start = now;
+      // Calculate the time delta between the frames
+      // Should be somewhere around 16ms.
+      var now = Date.now();
+      var delta = now - before;
+      before = now;
+
+      // Apply the velocity
+      self.left -= speed * delta / 1000;
+
+      var offset = self.left;
+      messages.forEach(function (item, i) {
+        offset += item.padding;
+        item.el.style.webkitTransform = "translateX(" + Math.floor(offset) + "px)";
+        offset += item.width;
+
+        if (offset <= 0) {
+          self.left = offset;
+          item.done = true;
         }
-      }
-    },
+      });
 
-    // This the public API for adding a new message to the ticker queue
-    // It will display as the next message jumping in front of any existing
-    // queued messages, but after any that have not been shown at least once.
-    addMessage: function (message) {
-
-      // Create the element for the message and insert into the shadowRoot
-      var el = document.createElement("li");
-      el.textContent = message;
-      this.shadowRoot.appendChild(el);
-
-      // Create the message object that contains the timing information and
-      // a reference to the dom element.
-      var created = Date.now();
-      var item = {
-        el: el,           // The actual element to be moved
-        created: created, // Created timestamp
-        start: created,   // Time it started animating
-        active: false,    // Flag to tell if it's currently on the screen.
-        seen: false,      // Flag to tell if it's ever been on the screen.
-        dying: false,
-      };
-
-
-      // Insert after the last visible message
-      // Remember that the list wraps and last message may seem before others.
-      // If all messages are visible, then just push on the end.
-      for (var i = 0, l = this.messages.length; i < l; i++) {
-        var other = this.messages[i];
-        if (other.seen && !other.active) break;
-      }
-      if (i < l) {
-        this.messages.splice(i, 0, item);
-      }
-      else {
-        this.messages.sort(function (a, b) {
-          return a.start - b.start;
-        });
-        // debugger;
-        this.messages.push(item);
-      }
-
-      l = this.messages.length;
-      if (l > 25) {
-        // If the list is too long, remove the oldest message
-        var oldest = Infinity, index = -1;
-        for (i = 0; i < l; i++) {
-          var other = this.messages[i];
-          if (!other.dying && other.created < oldest) {
-            oldest = other.created;
-            other.dying = true;
-            index = i;
-          }
-        }
+      // Remove the finished items in reverse order.
+      for (var i = messages.length - 1; i >= 0; i--) {
+        var item = messages[i];
+        if (!item.done) continue;
+        item.done = false;
+        messages.splice(messages.indexOf(item), 1);
+        item.el.parentNode.removeChild(item.el);
+        if (!item.dying) self.addMessage(item);
       }
 
     }
+  },
 
-  });
+  // This the public API for adding a new message to the ticker queue
+  // It will display as the next message jumping in front of any existing
+  // queued messages, but after any that have not been shown at least once.
+  addMessage: function (message) {
+    var el, item;
+    if (typeof message === "string") {
+      // Create the element for the message and insert into the shadowRoot
+      el = document.createElement("li");
+      this.shadowRoot.appendChild(el);
+      el.textContent = message;
+      // Create the message object that contains the timing information and
+      // a reference to the dom element.
+      var created = Date.now();
+      item = {
+        el: el,           // The actual element to be moved
+        created: created, // Created timestamp.  Used to remove the oldest message when full
+        padding: 0,       // Used to ensure elements start on the far right.
+        width: el.clientWidth, //
+        seen: false,      // Flag to tell if it's ever been on the screen.
+      };
 
+    }
+    else {
+      item = message;
+      item.seen = true;
+      el = item.el;
+      this.shadowRoot.appendChild(el);
+    }
 
-}());
+    var offset = this.left;
+    var other;
+    for (var i = 0, l = this.messages.length; i < l; i++) {
+      other = this.messages[i];
+      offset += other.padding + other.width;
+    }
+    item.padding = Math.max(0, this.width - offset);
+    this.messages.push(item);
+
+    l = this.messages.length;
+    if (l > 25) {
+      // If the list is too long, remove the oldest message
+      var oldest = Infinity, index = -1;
+      for (i = 0; i < l; i++) {
+        other = this.messages[i];
+        if (!other.dying && other.created < oldest) {
+          oldest = other.created;
+          index = i;
+        }
+      }
+      if (index >= 0) this.messages[index].dying = true;
+
+    }
+
+  }
+
+});
