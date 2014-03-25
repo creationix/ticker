@@ -1,5 +1,15 @@
 :host {
-  background-color: #333;
-  color: #fff;
+  position: absolute;
+  background-color: #999;
   font-weight: bold;
+  overflow: hidden;
+  width: 100%;
+  display: block;
+  height: 2em;
+  line-height: 2em;
+  list-style-type: none;
+}
+:host li {
+  padding: 0 1em;
+  position: absolute;
 }
